@@ -13,9 +13,21 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 import os
 import socket
 import sys
+from datetime import timedelta
 from pathlib import Path
 
-from distutils.util import strtobool
+
+def env_bool(name, default="false"):
+    """Read a boolean environment variable (replaces distutils.strtobool)."""
+    value = os.getenv(name, default).strip().lower()
+    return value in {"1", "true", "yes", "on", "y", "t"}
+
+
+def env_list(name, default=""):
+    """Read a comma separated environment variable as a clean list."""
+    raw = os.getenv(name, default)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,32 +36,44 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ["SECRET_KEY"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = bool(strtobool(os.getenv("DEBUG", "false")))
+DEBUG = env_bool("DEBUG")
 
 TESTING = "test" in sys.argv
 
+# Debug toolbar only makes sense in local development
+USE_DEBUG_TOOLBAR = DEBUG and not TESTING
+
 # https://docs.djangoproject.com/en/6.1/ref/settings/#std:setting-ALLOWED_HOSTS
-allowed_hosts = os.getenv("ALLOWED_HOSTS", ".localhost,127.0.0.1,[::1]")
-ALLOWED_HOSTS = list(map(str.strip, allowed_hosts.split(",")))
+ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ".localhost,127.0.0.1,[::1]")
+
+# Frontend (Vite) origins allowed to call the API from the browser
+# https://github.com/adamchainz/django-cors-headers
+FRONTEND_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+)
+CORS_ALLOWED_ORIGINS = FRONTEND_ORIGINS
+CSRF_TRUSTED_ORIGINS = FRONTEND_ORIGINS
 
 # Add accounts model to match superuser with all new users
 AUTH_USER_MODEL = "accounts.User"
 
-# Define personalized login page URL for the login_required decorator
-# LOGIN_URL = "/admin/login/"
-LOGIN_URL = "accounts:login"
-LOGOUT_REDIRECT_URL = "accounts:login"
+# No HTML login anymore (the frontend uses JWT). login_required and the
+# browsable API fall back to the admin login.
+LOGIN_URL = "admin:login"
+
+# Number of products returned by the public preview endpoint
+PRODUCTS_PREVIEW_LIMIT = 8
 
 # Application definitions
 INSTALLED_APPS = [
+    "corsheaders",
     "rest_framework",
-    "pages.apps.PagesConfig",
-    "sales.apps.SalesConfig",  # Added new app
-    "product.apps.ProductConfig",  # Added new app
-    "order_manager.apps.OrderManagerConfig",  # Added new app
-    "billing_profile.apps.BillingProfileConfig",  # Added new app
-    "address.apps.AddressConfig",  # Added new app
-    "cart.apps.CartConfig",  # Added new app
+    "rest_framework_simplejwt.token_blacklist",
+    "analytics.apps.AnalyticsConfig",  # Metrics (replaces "sales")
+    "products.apps.ProductsConfig",
+    "orders.apps.OrdersConfig",  # Orders + carts
+    "billing.apps.BillingConfig",
+    "addresses.apps.AddressesConfig",
     "accounts.apps.AccountsConfig",  # Added new app
     "django.contrib.admin",
     "django.contrib.auth",
@@ -62,6 +86,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    # Must be placed before CommonMiddleware
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -70,14 +96,20 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(minutes=30),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+}
+
 # Error control to redirect to custom error pages
 # https://docs.djangoproject.com/en/6.1/topics/http/views/#customizing-error-views
 # https://docs.djangoproject.com/en/6.1/ref/settings/#std:setting-DEBUG_PROPAGATE_EXCEPTIONS
 DEBUG_PROPAGATE_EXCEPTIONS = True
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "config.exceptions.custom_exception_handler",
-    # Create Global pagination instead of individual
-    "DEFAULT_PAGINATION_CLASS": "product.pagination.ProductPagination",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         # API auth
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -87,13 +119,14 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+    "DEFAULT_THROTTLE_RATES": {"auth": "10/min", "preview": "60/min"},
     # Implement security for Production in API module
     # 'DEFAULT_RENDERER_CLASSES': [
     #     'rest_framework.renderers.JSONRenderer',
     # ]
 }
 
-if not TESTING:
+if USE_DEBUG_TOOLBAR:
     INSTALLED_APPS = [*INSTALLED_APPS, "debug_toolbar"]
     MIDDLEWARE = [
         "debug_toolbar.middleware.DebugToolbarMiddleware",
@@ -184,6 +217,9 @@ CELERY_WORKER_LOG_LEVEL = os.getenv("CELERY_WORKER_LOG_LEVEL", "info")
 # Storages
 # https://docs.djangoproject.com/en/6.1/ref/settings/#storages
 STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
@@ -194,6 +230,11 @@ STORAGES = {
 STATIC_URL = "/static/"
 STATICFILES_DIRS = ["/public", os.path.join(BASE_DIR, "..", "public")]
 STATIC_ROOT = "/public_collected"
+
+# Media files (product images, uploads)
+# In production mount MEDIA_ROOT as a persistent volume.
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.getenv("MEDIA_ROOT", str(BASE_DIR.parent / "media"))
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/

@@ -16,17 +16,18 @@ Including another URLconf
 """
 
 from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import UserViewSet
-from cart.views import CartViewSet
-from order_manager.views import OrderViewSet
-from product.views import ProductViewSet
+from orders.views import CartViewSet, OrderViewSet
+from products.views import CategoryViewSet, ProductViewSet
 
 router = DefaultRouter()
 router.register(r"products", ProductViewSet, basename="product")
+router.register(r"categories", CategoryViewSet, basename="category")
 router.register(r"users", UserViewSet, basename="user")
 router.register(r"carts", CartViewSet, basename="cart")
 router.register(r"orders", OrderViewSet, basename="order")
@@ -34,14 +35,19 @@ router.register(r"orders", OrderViewSet, basename="order")
 urlpatterns = [
     path("up/", include("up.urls")),
     # path("", include("pages.urls")),
-    path("sales/", include("sales.urls")),
+    path("analytics/", include("analytics.urls")),
     path("", include("accounts.urls")),
-    path("", include("product.urls")),
     path("admin/", admin.site.urls),
     path("api/v1/", include(router.urls)),
 ]
-if not settings.TESTING:
+if settings.USE_DEBUG_TOOLBAR:
     urlpatterns = [
         *urlpatterns,
         path("__debug__/", include("debug_toolbar.urls")),
     ]
+
+# Serve uploaded media only in development (use a web server/CDN in prod)
+if settings.DEBUG:
+    urlpatterns += static(
+        settings.MEDIA_URL, document_root=settings.MEDIA_ROOT
+    )
