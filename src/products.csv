@@ -1,0 +1,51 @@
+name,description,product_type,access_type,price,discount_price,stock,weight,image,is_active,is_featured
+Mouse 1,mouse wireless,physical,purchase,1000,800,12,0.5,,True,True
+Mouse 2,mouse wireless,physical,purchase,1001,801,13,0.5,,True,False
+Mouse 3,mouse wireless,physical,purchase,1002,802,14,0.5,,True,False
+Mouse 4,mouse wireless,physical,purchase,1003,803,15,0.5,,True,False
+Mouse 5,mouse wireless,physical,purchase,1004,804,16,0.5,,True,False
+Mouse 6,mouse wireless,physical,purchase,1005,805,17,0.5,,True,False
+Mouse 7,mouse wireless,physical,purchase,1006,806,18,0.5,,True,False
+Mouse 8,mouse wireless,physical,purchase,1007,807,19,0.5,,True,False
+Mouse 9,mouse wireless,physical,purchase,1008,808,20,0.5,,True,False
+Mouse 10,mouse wireless,physical,purchase,1009,809,21,0.5,,True,False
+Mouse 11,mouse wireless,physical,purchase,1010,810,22,0.5,,True,False
+Mouse 12,mouse wireless,physical,purchase,1011,811,23,0.5,,True,False
+Mouse 13,mouse wireless,physical,purchase,1012,812,24,0.5,,True,False
+Laptop 1,Laptop 1TB,physical,purchase,15000,12000,20,2,,True,True
+Laptop 2,Laptop 1TB,physical,purchase,15001,12001,21,2,,True,False
+Laptop 3,Laptop 1TB,physical,purchase,15002,12002,22,2,,True,False
+Laptop 4,Laptop 1TB,physical,purchase,15003,12003,23,2,,True,False
+Laptop 5,Laptop 1TB,physical,purchase,15004,12004,24,2,,True,False
+Laptop 6,Laptop 1TB,physical,purchase,15005,12005,25,2,,True,False
+Laptop gamer 1,Laptop 32GB RAM,physical,purchase,25000,22000,20,2,,True,True
+Laptop gamer 2,Laptop 32GB RAM,physical,purchase,25001,22001,21,2,,True,False
+Laptop gamer 3,Laptop 32GB RAM,physical,purchase,25002,22002,22,2,,True,False
+Laptop gamer 4,Laptop 32GB RAM,physical,purchase,25003,22003,23,2,,True,False
+Laptop gamer 5,Laptop 32GB RAM,physical,purchase,25004,22004,24,2,,True,False
+Laptop gamer 6,Laptop 32GB RAM,physical,purchase,25005,22005,25,2,,True,False
+Laptop gamer 7,Laptop 32GB RAM,physical,purchase,25006,22006,26,2,,True,False
+Keyboard 1,mechanical keyboard,physical,purchase,800,600,20,0.8,,True,True
+Keyboard 2,mechanical keyboard,physical,purchase,801,600,21,0.8,,True,False
+Keyboard 3,mechanical keyboard,physical,purchase,802,600,22,0.8,,True,False
+Keyboard 4,mechanical keyboard,physical,purchase,803,600,23,0.8,,True,False
+Keyboard 5,mechanical keyboard,physical,purchase,804,600,24,0.8,,True,False
+Keyboard 6,mechanical keyboard,physical,purchase,805,600,25,0.8,,True,False
+Keyboard Wireless 1,keyboard wireless,physical,purchase,1800,1500,20,0.8,,True,True
+Keyboard Wireless 2,keyboard wireless,physical,purchase,1801,1501,21,0.8,,True,False
+Keyboard Wireless 3,keyboard wireless,physical,purchase,1802,1502,22,0.8,,True,False
+Keyboard Wireless 4,keyboard wireless,physical,purchase,1803,1503,23,0.8,,True,False
+Keyboard Wireless 5,keyboard wireless,physical,purchase,1804,1504,24,0.8,,True,False
+Keyboard Wireless 6,keyboard wireless,physical,purchase,1805,1505,25,0.8,,True,False
+Keyboard Wireless 7,keyboard wireless,physical,purchase,1806,1506,26,0.8,,True,False
+PC gamer 1,PC 2TB SSD,physical,purchase,1800,1600,20,2.5,,True,True
+PC gamer 2,PC 2TB SSD,physical,purchase,1801,1600,21,2.5,,True,False
+PC gamer 3,PC 2TB SSD,physical,purchase,1802,1600,22,2.5,,True,False
+PC gamer 4,PC 2TB SSD,physical,purchase,1803,1600,23,2.5,,True,False
+PC gamer 5,PC 2TB SSD,physical,purchase,1804,1600,24,2.5,,True,False
+PC gamer 6,PC 2TB SSD,physical,purchase,1805,1600,25,2.5,,True,False
+PC gamer 7,PC 2TB SSD,physical,purchase,1806,1600,26,2.5,,True,False
+PC gamer 8,PC 2TB SSD,physical,purchase,1807,1600,27,2.5,,True,False
+PC gamer 9,PC 2TB SSD,physical,purchase,1808,1600,28,2.5,,True,False
+PC gamer 10,PC 2TB SSD,physical,purchase,1809,1600,29,2.5,,True,False
+PC gamer 11,PC 2TB SSD,physical,purchase,1810,1600,30,2.5,,True,True
