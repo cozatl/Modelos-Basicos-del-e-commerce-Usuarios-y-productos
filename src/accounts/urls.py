@@ -1,30 +1,32 @@
-from django.contrib.auth.views import LogoutView
-from django.urls import path
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
+from django.urls import re_path
 
 from accounts.views import (
+    LogoutView,
+    RegisterView,
+    ThrottledTokenObtainPairView,
+    ThrottledTokenRefreshView,
     UserProfileView,
-    login_view,
-    profile_view,
-    register_view,
 )
 
 # Define namespace which is required for the template
 app_name = "accounts"
 
 urlpatterns = [
-    path("register/", register_view, name="register"),
-    path("login/", login_view, name="login"),
-    path("profile/", profile_view, name="profile_page"),
-    path(
-        "logout/",
-        LogoutView.as_view(next_page="accounts:login"),
-        name="logout",
+    re_path(r"^api/v1/register/?$", RegisterView.as_view(), name="register"),
+    re_path(r"^api/v1/logout/?$", LogoutView.as_view(), name="logout"),
+    re_path(
+        r"^api/v1/profile/?$", UserProfileView.as_view(), name="user-profile"
     ),
-    path("api/v1/profile/", UserProfileView.as_view(), name="user-profile"),
-    path("api/v1/token/", TokenObtainPairView.as_view()),
-    path("api/v1/token/refresh/", TokenRefreshView.as_view()),
+    # Use email and password to get refresh and access token
+    re_path(
+        r"^api/v1/token/?$",
+        ThrottledTokenObtainPairView.as_view(),
+        name="user-token",
+    ),
+    # Use refresh token to generate a new access token
+    re_path(
+        r"^api/v1/token/refresh/?$",
+        ThrottledTokenRefreshView.as_view(),
+        name="token-refresh",
+    ),
 ]
