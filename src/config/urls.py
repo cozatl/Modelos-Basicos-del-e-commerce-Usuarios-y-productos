@@ -22,22 +22,21 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import UserViewSet
-from orders.views import CartViewSet, OrderViewSet
+from orders.views import OrderViewSet
 from products.views import CategoryViewSet, ProductViewSet
 
 router = DefaultRouter()
 router.register(r"products", ProductViewSet, basename="product")
 router.register(r"categories", CategoryViewSet, basename="category")
 router.register(r"users", UserViewSet, basename="user")
-router.register(r"carts", CartViewSet, basename="cart")
 router.register(r"orders", OrderViewSet, basename="order")
 
 urlpatterns = [
-    path("up/", include("up.urls")),
-    # path("", include("pages.urls")),
-    path("analytics/", include("analytics.urls")),
+    path("up/", include("up.urls")),    
     path("", include("accounts.urls")),
     path("admin/", admin.site.urls),
+    path("analytics/", include("analytics.urls")),
+    path("api/v1/", include("orders.urls")),
     path("api/v1/", include(router.urls)),
 ]
 if settings.USE_DEBUG_TOOLBAR:
