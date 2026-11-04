@@ -98,7 +98,8 @@ class CartAccessTests(CartTestCase):
 
         response = self.client.get(self.cart_url)
         self.assertEqual(
-            [i["product"]["slug"] for i in response.data["items"]], [theirs.slug]
+            [i["product"]["slug"] for i in response.data["items"]],
+            [theirs.slug],
         )
 
     def test_cannot_change_or_delete_another_users_item(self):
@@ -106,7 +107,9 @@ class CartAccessTests(CartTestCase):
         other_cart = Cart.for_user(self.other)
         item = CartItem.objects.create(cart=other_cart, product=product, quantity=1)
 
-        response = self.client.patch(self.item_url(item.pk), {"quantity": 2}, format="json")
+        response = self.client.patch(
+            self.item_url(item.pk), {"quantity": 2}, format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         response = self.client.delete(self.item_url(item.pk))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -175,16 +178,21 @@ class AddToCartTests(CartTestCase):
             with self.subTest(product_type=product_type):
                 product = make_product(product_type=product_type, stock=0)
                 self.assertEqual(
-                    self.add(product, 2).status_code, status.HTTP_400_BAD_REQUEST
+                    self.add(product, 2).status_code,
+                    status.HTTP_400_BAD_REQUEST,
                 )
                 response = self.add(product, 1)
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
                 row = next(
-                    i for i in response.data["items"] if i["product"]["slug"] == product.slug
+                    i
+                    for i in response.data["items"]
+                    if i["product"]["slug"] == product.slug
                 )
                 self.assertEqual(row["max_quantity"], 1)
                 # Adding it a second time would make 2
-                self.assertEqual(self.add(product).status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(
+                    self.add(product).status_code, status.HTTP_400_BAD_REQUEST
+                )
 
     def test_inactive_product_is_rejected(self):
         response = self.add(make_product(is_active=False))
@@ -194,9 +202,14 @@ class AddToCartTests(CartTestCase):
         for access_type in ("subscription", "free"):
             with self.subTest(access_type=access_type):
                 product = make_product(
-                    product_type="video", access_type=access_type, price=None, stock=0
+                    product_type="video",
+                    access_type=access_type,
+                    price=None,
+                    stock=0,
                 )
-                self.assertEqual(self.add(product).status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(
+                    self.add(product).status_code, status.HTTP_400_BAD_REQUEST
+                )
 
     def test_unknown_product_is_rejected(self):
         response = self.client.post(self.items_url, {"product": "nope"}, format="json")
@@ -208,7 +221,8 @@ class AddToCartTests(CartTestCase):
         for quantity in (0, -1):
             with self.subTest(quantity=quantity):
                 self.assertEqual(
-                    self.add(product, quantity).status_code, status.HTTP_400_BAD_REQUEST
+                    self.add(product, quantity).status_code,
+                    status.HTTP_400_BAD_REQUEST,
                 )
 
 
@@ -220,25 +234,35 @@ class UpdateCartItemTests(CartTestCase):
         self.item_id = response.data["items"][0]["id"]
 
     def test_patch_sets_the_quantity(self):
-        response = self.client.patch(self.item_url(self.item_id), {"quantity": 4}, format="json")
+        response = self.client.patch(
+            self.item_url(self.item_id), {"quantity": 4}, format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["items"][0]["quantity"], 4)
         self.assertEqual(response.data["total"], "400.00")
 
     def test_patch_cannot_exceed_stock(self):
-        response = self.client.patch(self.item_url(self.item_id), {"quantity": 5}, format="json")
+        response = self.client.patch(
+            self.item_url(self.item_id), {"quantity": 5}, format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_patch_zero_is_rejected_use_delete(self):
-        response = self.client.patch(self.item_url(self.item_id), {"quantity": 0}, format="json")
+        response = self.client.patch(
+            self.item_url(self.item_id), {"quantity": 0}, format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_patch_digital_above_one_is_rejected(self):
         ebook = make_product(product_type="ebook", stock=0)
         item_id = next(
-            i["id"] for i in self.add(ebook).data["items"] if i["product"]["slug"] == ebook.slug
+            i["id"]
+            for i in self.add(ebook).data["items"]
+            if i["product"]["slug"] == ebook.slug
         )
-        response = self.client.patch(self.item_url(item_id), {"quantity": 2}, format="json")
+        response = self.client.patch(
+            self.item_url(item_id), {"quantity": 2}, format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_delete_item(self):
@@ -292,16 +316,23 @@ class PriceIsNotStoredTests(CartTestCase):
         product.stock = 2
         product.save()
 
-        response = self.client.patch(self.item_url(item_id), {"quantity": 2}, format="json")
+        response = self.client.patch(
+            self.item_url(item_id), {"quantity": 2}, format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(response.data["has_problems"])
 
 
 class OrderEndpointTests(CartTestCase):
-    def test_orders_are_read_only_until_m4(self):
+    def test_cannot_order_someone_elses_cart(self):
+        # M4: POST /orders/ always uses request.user's cart; a `cart` id is ignored.
+        product = make_product()
+        CartItem.objects.create(cart=Cart.for_user(self.other), product=product)
         cart = Cart.for_user(self.other)
         response = self.client.post("/api/v1/orders/", {"cart": cart.pk}, format="json")
-        self.assertIn(
-            response.status_code,
-            (status.HTTP_405_METHOD_NOT_ALLOWED, status.HTTP_404_NOT_FOUND),
-        )
+        # my cart is empty
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(cart.items.exists())
+        from .models import Order
+
+        self.assertFalse(Order.objects.exists())

@@ -39,15 +39,11 @@ class Category(models.Model):
             parent_id=self.parent_id, name__iexact=self.name
         ).exclude(pk=self.pk)
         if siblings.exists():
-            raise ValidationError(
-                {"name": "This category already exists here."}
-            )
+            raise ValidationError({"name": "This category already exists here."})
         if self.parent_id is None:
             return
         if self.pk and self.parent_id == self.pk:
-            raise ValidationError(
-                {"parent": "A category can't be its own parent."}
-            )
+            raise ValidationError({"parent": "A category can't be its own parent."})
         # Two levels only: the parent must be a top-level category
         if self.parent.parent_id is not None:
             raise ValidationError(
@@ -63,15 +59,11 @@ class Category(models.Model):
             base = slugify(self.name)
             if (
                 self.parent_id
-                and Category.objects.filter(slug=base)
-                .exclude(pk=self.pk)
-                .exists()
+                and Category.objects.filter(slug=base).exclude(pk=self.pk).exists()
             ):
                 base = f"{self.parent.slug}-{base}"
             slug, counter = base, 1
-            while (
-                Category.objects.filter(slug=slug).exclude(pk=self.pk).exists()
-            ):
+            while Category.objects.filter(slug=slug).exclude(pk=self.pk).exists():
                 slug = f"{base}-{counter}"
                 counter += 1
             self.slug = slug
@@ -224,9 +216,7 @@ class Product(models.Model):
             base_slug = slugify(self.name)
             slug = base_slug
             counter = 1
-            while (
-                Product.objects.filter(slug=slug).exclude(pk=self.pk).exists()
-            ):
+            while Product.objects.filter(slug=slug).exclude(pk=self.pk).exists():
                 slug = f"{base_slug}-{counter}"
                 counter += 1
             self.slug = slug

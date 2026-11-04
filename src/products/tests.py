@@ -30,9 +30,7 @@ class ProductModelTest(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.product = make_product(
-            "Smartphone XYZ", price=Decimal("299.99"), stock=50
-        )
+        cls.product = make_product("Smartphone XYZ", price=Decimal("299.99"), stock=50)
 
     def test_product_creation(self):
         self.assertEqual(self.product.price, Decimal("299.99"))

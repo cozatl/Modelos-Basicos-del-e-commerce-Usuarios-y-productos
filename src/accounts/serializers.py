@@ -38,9 +38,7 @@ class UserSerializer(serializers.ModelSerializer):
         if self.instance is not None:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
-            raise serializers.ValidationError(
-                "A user with this email already exists."
-            )
+            raise serializers.ValidationError("A user with this email already exists.")
         return value
 
     def validate_password(self, value):
@@ -50,9 +48,7 @@ class UserSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         request = self.context.get("request")
         if self.instance is None and not attrs.get("password"):
-            raise serializers.ValidationError(
-                {"password": "This field is required."}
-            )
+            raise serializers.ValidationError({"password": "This field is required."})
         if (
             "password" in attrs
             and self.instance is not None
@@ -132,9 +128,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         value = value.strip().lower()
         if User.objects.filter(email__iexact=value).exists():
-            raise serializers.ValidationError(
-                "A user with this email already exists."
-            )
+            raise serializers.ValidationError("A user with this email already exists.")
         return value
 
     def validate_password(self, value):

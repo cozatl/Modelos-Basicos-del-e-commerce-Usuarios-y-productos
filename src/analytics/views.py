@@ -20,10 +20,7 @@ class SalesAjaxView(View):
                     day = start_date + timedelta(days=x)
                     labels.append(day.strftime("%a"))
                     day_total = (
-                        qs.filter(created_at__date=day).totals_data()[
-                            "total__sum"
-                        ]
-                        or 0
+                        qs.filter(created_at__date=day).totals_data()["total__sum"] or 0
                     )
                     sales_items.append(float(day_total))
                 data["labels"] = labels

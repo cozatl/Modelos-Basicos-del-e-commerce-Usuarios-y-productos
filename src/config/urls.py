@@ -22,6 +22,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import UserViewSet
+from addresses.views import AddressViewSet
 from orders.views import OrderViewSet
 from products.views import CategoryViewSet, ProductViewSet
 
@@ -30,9 +31,10 @@ router.register(r"products", ProductViewSet, basename="product")
 router.register(r"categories", CategoryViewSet, basename="category")
 router.register(r"users", UserViewSet, basename="user")
 router.register(r"orders", OrderViewSet, basename="order")
+router.register(r"addresses", AddressViewSet, basename="address")
 
 urlpatterns = [
-    path("up/", include("up.urls")),    
+    path("up/", include("up.urls")),
     path("", include("accounts.urls")),
     path("admin/", admin.site.urls),
     path("analytics/", include("analytics.urls")),
@@ -47,6 +49,4 @@ if settings.USE_DEBUG_TOOLBAR:
 
 # Serve uploaded media only in development (use a web server/CDN in prod)
 if settings.DEBUG:
-    urlpatterns += static(
-        settings.MEDIA_URL, document_root=settings.MEDIA_ROOT
-    )
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

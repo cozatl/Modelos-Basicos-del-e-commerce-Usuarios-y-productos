@@ -24,9 +24,7 @@ class UserModelTest(TestCase):
         self.assertEqual(user.email, "testuser@example.com")
         self.assertEqual(user.full_name, "Juan")
         # self.assertEqual(user.last_name, "Pérez")
-        self.assertTrue(
-            user.check_password("securepassword123") or user.password
-        )
+        self.assertTrue(user.check_password("securepassword123") or user.password)
 
     def test_string_representation(self):
         """Validate the __str__ method or text representation of the user"""

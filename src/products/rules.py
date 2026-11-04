@@ -22,17 +22,13 @@ def product_rule_errors(
 
     # A physical item can't be delivered by subscription
     if is_physical and access_type == AccessType.SUBSCRIPTION:
-        errors["access_type"] = (
-            "A physical product can't be sold by subscription."
-        )
+        errors["access_type"] = "A physical product can't be sold by subscription."
 
     # Price depends on how the product is obtained
     if access_type == AccessType.PURCHASE and price is None:
         errors["price"] = "Price is required for products sold by purchase."
     elif access_type == AccessType.SUBSCRIPTION and price is not None:
-        errors["price"] = (
-            "Subscription products have no price; it belongs to the plan."
-        )
+        errors["price"] = "Subscription products have no price; it belongs to the plan."
     elif access_type == AccessType.FREE and price not in (None, 0):
         errors["price"] = "Free products must not have a price."
 

@@ -14,6 +14,7 @@ import os
 import socket
 import sys
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
 
@@ -116,9 +117,7 @@ REST_FRAMEWORK = {
         # Web auth
         "rest_framework.authentication.SessionAuthentication",
     ],
-    "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticated",
-    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_THROTTLE_RATES": {"auth": "10/min", "preview": "60/min"},
     # Implement security for Production in API module
     # 'DEFAULT_RENDERER_CLASSES': [
@@ -182,13 +181,13 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",  # noqa: E501
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",  # noqa: E501
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",  # noqa: E501
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",  # noqa: E501
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -213,6 +212,41 @@ CACHES = {
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_WORKER_LOG_LEVEL = os.getenv("CELERY_WORKER_LOG_LEVEL", "info")
+# Needs a `celery -A config beat` process next to the worker (see docs/M4.md)
+CELERY_BEAT_SCHEDULE = {
+    "release-expired-orders": {
+        "task": "orders.release_expired_orders",
+        "schedule": 60.0,  # seconds
+    },
+}
+# Tests run tasks inline, without a broker
+CELERY_TASK_ALWAYS_EAGER = TESTING
+
+# Checkout (M4)
+STORE_NAME = os.getenv("STORE_NAME", "Virtual Store")
+STORE_TIME_ZONE = os.getenv("STORE_TIME_ZONE", "America/Mexico_City")
+CURRENCY = "MXN"
+# Prices already include VAT; orders store the VAT they contain with this rate
+TAX_RATE = Decimal(os.getenv("TAX_RATE", "0.16"))
+# Minutes an unpaid order keeps its stock reserved
+ORDER_RESERVATION_MINUTES = int(os.getenv("ORDER_RESERVATION_MINUTES", "10"))
+# Simulated payment provider. Turn off once a real gateway is integrated.
+PAYMENTS_SIMULATED = env_bool("PAYMENTS_SIMULATED", "true")
+# Used for links in customer emails
+FRONTEND_URL = os.getenv("FRONTEND_URL", FRONTEND_ORIGINS[0] if FRONTEND_ORIGINS else "")
+
+# Email: printed to the console (docker compose logs) until an
+# SMTP service is set
+# https://docs.djangoproject.com/en/6.1/topics/email/
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", "true")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@localhost")
 
 # Storages
 # https://docs.djangoproject.com/en/6.1/ref/settings/#storages

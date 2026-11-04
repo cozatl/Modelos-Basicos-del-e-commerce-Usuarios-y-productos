@@ -108,9 +108,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     def preview(self, request):
         """Featured products first, filled with the newest ones."""
         limit = getattr(settings, "PRODUCTS_PREVIEW_LIMIT", 8)
-        active = Product.objects.filter(is_active=True).select_related(
-            "category"
-        )
+        active = Product.objects.filter(is_active=True).select_related("category")
 
         products = list(active.filter(is_featured=True)[:limit])
         missing = limit - len(products)

@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [tool.ruff]
-line-length = 79
+line-length = 90
 # Avoid review generated files automatically for Django
 extend-exclude = ["*/migrations/*"]
 
