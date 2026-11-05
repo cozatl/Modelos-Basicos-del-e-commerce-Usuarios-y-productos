@@ -13,7 +13,7 @@ from django.utils import timezone
 from addresses.choices import MexicanState
 from products.models import Product
 
-from .choices import SOLD_STATUSES, OrderStatus
+from .choices import SOLD_STATUSES, OrderChannel, OrderStatus
 
 # Product types delivered digitally: the customer buys one licence/copy,
 # never more.
@@ -235,6 +235,41 @@ class Order(models.Model):
         db_index=True,
     )
 
+    # Sale context (M5): channel, branch and seller. Reports filter by these.
+    channel = models.CharField(
+        max_length=10,
+        choices=OrderChannel.choices,
+        default=OrderChannel.ONLINE,
+        db_index=True,
+    )
+    location = models.ForeignKey(
+        "addresses.StockLocation",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="orders",
+        help_text="Online warehouse for online orders; the branch for counter sales.",
+    )
+    sold_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="sales",
+        limit_choices_to={"is_staff": True},
+        help_text="Staff member credited with the sale (commissions).",
+    )
+    # Frozen when the seller is assigned, so changing a seller's percentage later
+    # never rewrites past commissions. See analytics.commissions.
+    commission_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="10.00 = 10 %. Empty = no seller.",
+    )
+    commission_amount = models.DecimalField(default=Decimal("0.00"), **money_field)
+
     # Money. All prices already include VAT; tax_amount is the VAT contained in total.
     currency = models.CharField(max_length=3, default="MXN")
     items_subtotal = models.DecimalField(
@@ -322,6 +357,10 @@ class Order(models.Model):
                 fields=("user", "-created_at"),
                 name="orders_orde_user_id_4b9f0d_idx",
             ),
+            # Reports: sales are dated by paid_at and filtered by these fields.
+            models.Index(fields=("status", "paid_at"), name="orders_status_paid_idx"),
+            models.Index(fields=("location", "paid_at"), name="orders_location_paid_idx"),
+            models.Index(fields=("sold_by", "paid_at"), name="orders_seller_paid_idx"),
         ]
         permissions: ClassVar[list] = [
             ("change_order_status", "Can mark orders as shipped or delivered"),
@@ -329,6 +368,7 @@ class Order(models.Model):
                 "approve_order_cancellation",
                 "Can approve or reject cancellations and refunds",
             ),
+            ("assign_order_seller", "Can assign the seller (commission) of an order"),
         ]
 
     def __str__(self):

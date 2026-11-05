@@ -37,3 +37,10 @@ class MexicanState(models.TextChoices):
     VER = "VER", "Veracruz"
     YUC = "YUC", "Yucatán"
     ZAC = "ZAC", "Zacatecas"
+
+
+class LocationKind(models.TextChoices):
+    """Where stock lives and where a sale happens (see StockLocation)."""
+
+    ONLINE_WAREHOUSE = "warehouse", "Almacén en línea"
+    STORE = "store", "Tienda física"

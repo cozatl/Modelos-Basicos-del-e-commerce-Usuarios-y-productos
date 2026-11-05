@@ -1,28 +1,92 @@
-from datetime import timedelta
+"""
+Report API (JWT). Mounted at /api/v1/analytics/. Every endpoint is GET, accepts the
+filters described in analytics.filters and only returns data inside the viewer's
+scope (analytics.scope).
+"""
 
-from django.http import JsonResponse
-from django.utils import timezone
-from django.views.generic import View
+from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from orders.models import Order
+from . import reports
+from .filters import parse_filters
+from .scope import scope_for
 
 
-class SalesAjaxView(View):
-    def get(self, request, *args, **kwargs):
-        data = {}
-        if request.user.is_staff:
-            qs = Order.objects.by_weeks_range(weeks_ago=5, number_of_weeks=5)
-            if request.GET.get("type") == "week":
-                days = 7
-                start_date = timezone.localdate() - timedelta(days=days - 1)
-                labels, sales_items = [], []
-                for x in range(days):
-                    day = start_date + timedelta(days=x)
-                    labels.append(day.strftime("%a"))
-                    day_total = (
-                        qs.filter(created_at__date=day).totals_data()["total__sum"] or 0
-                    )
-                    sales_items.append(float(day_total))
-                data["labels"] = labels
-                data["data"] = sales_items
-        return JsonResponse(data)
+class HasReportAccess(BasePermission):
+    message = "You do not have permission to see reports."
+
+    def has_permission(self, request, view):
+        scope = scope_for(request.user)
+        if scope is None:
+            return False
+        view.scope = scope
+        return True
+
+
+class ReportView(APIView):
+    permission_classes = (IsAuthenticated, HasReportAccess)
+    scope = None
+
+    def get(self, request):
+        filters = parse_filters(request.query_params, self.scope)
+        return Response(self.build(filters, request.query_params))
+
+    def build(self, filters, params):  # pragma: no cover - overridden
+        raise NotImplementedError
+
+
+class MetaView(APIView):
+    """Scope, branches, channels and sellers the dashboard can offer as filters."""
+
+    permission_classes = (IsAuthenticated, HasReportAccess)
+    scope = None
+
+    def get(self, request):
+        return Response(reports.meta(self.scope))
+
+
+class SummaryView(ReportView):
+    def build(self, filters, params):
+        return reports.summary(self.scope, filters)
+
+
+class TimeseriesView(ReportView):
+    def build(self, filters, params):
+        return reports.timeseries(self.scope, filters)
+
+
+class TopProductsView(ReportView):
+    """?order_by=revenue|units&limit=10 (max 50)"""
+
+    def build(self, filters, params):
+        limit = params.get("limit") or 10
+        try:
+            limit = int(limit)
+        except ValueError:
+            limit = 10
+        return reports.top_products(
+            self.scope, filters, order_by=params.get("order_by"), limit=limit
+        )
+
+
+class CategoriesView(ReportView):
+    """?level=top|leaf"""
+
+    def build(self, filters, params):
+        return reports.categories(self.scope, filters, level=params.get("level", "top"))
+
+
+class BreakdownView(ReportView):
+    def build(self, filters, params):
+        return reports.breakdown(self.scope, filters)
+
+
+class OperationsView(ReportView):
+    def build(self, filters, params):
+        return reports.operations(self.scope, filters)
+
+
+class CommissionsView(ReportView):
+    def build(self, filters, params):
+        return reports.commissions(self.scope, filters)

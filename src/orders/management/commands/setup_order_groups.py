@@ -30,11 +30,38 @@ GROUPS = {
         "addresses.view_shippingsettings",
         "addresses.change_shippingsettings",
     ],
+    # M5: reports. Permissions add up (branch + own sales).
+    "Reportes: global": [
+        "analytics.view_global_reports",
+    ],
+    "Reportes: sucursal": [
+        "analytics.view_location_reports",
+    ],
+    "Reportes: mis ventas": [
+        "analytics.view_own_sales",
+    ],
+    "Comisiones: configuración": [
+        "analytics.view_staffprofile",
+        "analytics.add_staffprofile",
+        "analytics.change_staffprofile",
+        "view_order",
+        "change_order",
+        "assign_order_seller",
+        "addresses.view_stocklocation",
+    ],
+    "Sucursales: configuración": [
+        "addresses.view_stocklocation",
+        "addresses.add_stocklocation",
+        "addresses.change_stocklocation",
+    ],
 }
 
 
 class Command(BaseCommand):
-    help = "Create (or update) the staff groups for orders and shipping. Safe to re-run."
+    help = (
+        "Create (or update) the staff groups for orders, shipping, reports and "
+        "commissions. Safe to re-run."
+    )
 
     def handle(self, *args, **options):
         for name, codenames in GROUPS.items():

@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 
+from analytics.commissions import assign_seller
 from billing.models import Payment
 
 from . import services
@@ -95,6 +96,8 @@ class OrderAdmin(admin.ModelAdmin):
         "order_id",
         "customer_email",
         "status",
+        "channel",
+        "location",
         "total",
         "needs_shipping",
         "created_at",
@@ -103,6 +106,8 @@ class OrderAdmin(admin.ModelAdmin):
     )
     list_filter = (
         "status",
+        "channel",
+        "location",
         CancelRequestFilter,
         "needs_shipping",
         "created_at",
@@ -114,6 +119,7 @@ class OrderAdmin(admin.ModelAdmin):
         "postal_code",
     )
     date_hierarchy = "created_at"
+    autocomplete_fields = ("sold_by",)
     inlines = (OrderItemInline, PaymentInline)
     actions = (
         "action_mark_shipped",
@@ -121,6 +127,7 @@ class OrderAdmin(admin.ModelAdmin):
         "action_refund_restock",
         "action_refund_no_restock",
         "action_reject_cancellation",
+        "action_recalculate_commission",
     )
     # Only these can be typed in; everything else is history.
     editable_fields = ("tracking_number", "staff_notes")
@@ -134,6 +141,18 @@ class OrderAdmin(admin.ModelAdmin):
                     "customer_email",
                     "status",
                     "notes",
+                )
+            },
+        ),
+        (
+            "Sale",
+            {
+                "fields": (
+                    "channel",
+                    "location",
+                    "sold_by",
+                    "commission_percent",
+                    "commission_amount",
                 )
             },
         ),
@@ -199,10 +218,28 @@ class OrderAdmin(admin.ModelAdmin):
     )
 
     def get_readonly_fields(self, request, obj=None):
-        return [f.name for f in Order._meta.fields if f.name not in self.editable_fields]
+        editable = set(self.editable_fields)
+        if self.has_assign_order_seller_permission(request):
+            editable.add("sold_by")
+        return [f.name for f in Order._meta.fields if f.name not in editable]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related("user")
+        return super().get_queryset(request).select_related("user", "location")
+
+    def save_model(self, request, obj, form, change):
+        # The seller goes through assign_seller so the commission is frozen with it.
+        seller_changed = "sold_by" in form.changed_data
+        seller = obj.sold_by
+        if seller_changed and change:
+            obj.sold_by = Order.objects.get(pk=obj.pk).sold_by
+        super().save_model(request, obj, form, change)
+        if seller_changed:
+            assign_seller(obj, seller)
+            self.message_user(
+                request,
+                f"Seller of {obj.order_id} set to {seller or '—'}.",
+                messages.SUCCESS,
+            )
 
     @admin.display(boolean=True, description="Cancel requested")
     def cancel_pending(self, obj):
@@ -225,6 +262,9 @@ class OrderAdmin(admin.ModelAdmin):
 
     def has_approve_order_cancellation_permission(self, request):
         return request.user.has_perm("orders.approve_order_cancellation")
+
+    def has_assign_order_seller_permission(self, request):
+        return request.user.has_perm("orders.assign_order_seller")
 
     def _run(self, request, queryset, func, done, **kwargs):
         ok = 0
@@ -277,3 +317,14 @@ class OrderAdmin(admin.ModelAdmin):
     )
     def action_reject_cancellation(self, request, queryset):
         self._run(request, queryset, services.reject_cancellation, "updated")
+
+    @admin.action(
+        description="Recalculate commission with the seller's current percentage",
+        permissions=("assign_order_seller",),
+    )
+    def action_recalculate_commission(self, request, queryset):
+        ok = 0
+        for order in queryset.filter(sold_by__isnull=False).select_related("sold_by"):
+            assign_seller(order, order.sold_by)
+            ok += 1
+        self.message_user(request, f"{ok} commission(s) recalculated.", messages.SUCCESS)

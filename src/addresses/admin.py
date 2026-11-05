@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Address, ShippingSettings, ShippingZone
+from .models import Address, ShippingSettings, ShippingZone, StockLocation
 
 
 @admin.register(Address)
@@ -56,3 +56,20 @@ class ShippingSettingsAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(StockLocation)
+class StockLocationAdmin(admin.ModelAdmin):
+    """Online warehouse and physical stores. Deactivate instead of deleting:
+    orders keep pointing to their location."""
+
+    list_display = ("name", "kind", "region", "state", "is_active", "sort_order")
+    list_editable = ("sort_order",)
+    list_filter = ("kind", "region", "is_active")
+    search_fields = ("name", "region")
+
+    def has_delete_permission(self, request, obj=None):
+        # Orders protect their location; deleting would fail anyway once it has sales.
+        if obj is not None and obj.orders.exists():
+            return False
+        return super().has_delete_permission(request, obj)

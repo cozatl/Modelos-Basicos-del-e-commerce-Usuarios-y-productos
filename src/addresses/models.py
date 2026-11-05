@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models, transaction
 
-from .choices import MexicanState
+from .choices import LocationKind, MexicanState
 
 postal_code_validator = RegexValidator(
     r"^\d{5}$", "The postal code must have exactly 5 digits."
@@ -259,3 +259,50 @@ class ShippingSettings(models.Model):
     def load(cls):
         obj, _ = cls.objects.select_related("default_zone").get_or_create(pk=1)
         return obj
+
+
+# -----------------------------------------------------------------------------
+# Stock locations: the online warehouse and each physical store (M5 minimum).
+# M4b adds address, opening days, closing time, holidays and stock per location.
+# -----------------------------------------------------------------------------
+class StockLocation(models.Model):
+    """
+    A place that holds stock and where sales are recorded. Orders point to it so
+    reports can be filtered by branch (sucursal) and region.
+
+    - Online warehouse: stock for home delivery; online orders are recorded here.
+    - Store: a physical branch (counter sales and, with M4b, pick-up).
+    """
+
+    kind = models.CharField(
+        max_length=20, choices=LocationKind.choices, default=LocationKind.STORE
+    )
+    name = models.CharField(max_length=80, unique=True)
+    region = models.CharField(
+        "región / ciudad",
+        max_length=80,
+        help_text='Groups branches, e.g. "Puebla" or "Mérida".',
+    )
+    state = models.CharField(max_length=3, choices=MexicanState.choices, blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("sort_order", "region", "name")
+
+    def __str__(self):
+        return self.name if self.is_online else f"{self.name} ({self.region})"
+
+    @property
+    def is_online(self):
+        return self.kind == LocationKind.ONLINE_WAREHOUSE
+
+    @classmethod
+    def online_warehouse(cls):
+        """The location recorded on online orders (first active warehouse)."""
+        return (
+            cls.objects.filter(kind=LocationKind.ONLINE_WAREHOUSE, is_active=True)
+            .order_by("sort_order", "pk")
+            .first()
+        )

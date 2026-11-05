@@ -19,12 +19,13 @@ from django.db.models import F
 from django.utils import timezone
 from kombu.exceptions import OperationalError as BrokerOperationalError
 
+from addresses.models import StockLocation
 from addresses.shipping import ShippingNotAvailable, quote_shipping
 from billing.models import PaymentStatus
 from billing.payments import get_provider
 from products.models import Product
 
-from .choices import SOLD_STATUSES, OrderStatus
+from .choices import SOLD_STATUSES, OrderChannel, OrderStatus
 from .models import (
     Cart,
     CartItem,
@@ -188,6 +189,8 @@ def create_order_from_cart(user, address=None, notes=""):
         user=user,
         customer_email=user.email,
         status=OrderStatus.PENDING_PAYMENT,
+        channel=OrderChannel.ONLINE,
+        location=StockLocation.online_warehouse(),
         currency=getattr(settings, "CURRENCY", "MXN"),
         items_subtotal=totals.items_subtotal,
         shipping_cost=totals.shipping_cost,

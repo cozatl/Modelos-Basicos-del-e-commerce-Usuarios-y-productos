@@ -21,3 +21,11 @@ class OrderStatus(models.TextChoices):
 
 # Orders that count as a sale (money received and not given back).
 SOLD_STATUSES = (OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED)
+
+
+class OrderChannel(models.TextChoices):
+    """Where the sale happened. A counter sale ("Venta" in the UI) is an order of
+    the pos channel: created already paid, no reservation, with its ticket."""
+
+    ONLINE = "online", "En línea"
+    POS = "pos", "Mostrador"

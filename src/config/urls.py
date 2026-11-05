@@ -37,7 +37,7 @@ urlpatterns = [
     path("up/", include("up.urls")),
     path("", include("accounts.urls")),
     path("admin/", admin.site.urls),
-    path("analytics/", include("analytics.urls")),
+    path("api/v1/analytics/", include("analytics.urls")),
     path("api/v1/", include("orders.urls")),
     path("api/v1/", include(router.urls)),
 ]

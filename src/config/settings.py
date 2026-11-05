@@ -70,7 +70,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
-    "analytics.apps.AnalyticsConfig",  # Metrics (replaces "sales")
+    "analytics.apps.AnalyticsConfig",  # Reports and seller commissions (M5)
     "products.apps.ProductsConfig",
     "orders.apps.OrdersConfig",  # Orders + carts
     "billing.apps.BillingConfig",
@@ -228,6 +228,8 @@ STORE_TIME_ZONE = os.getenv("STORE_TIME_ZONE", "America/Mexico_City")
 CURRENCY = "MXN"
 # Prices already include VAT; orders store the VAT they contain with this rate
 TAX_RATE = Decimal(os.getenv("TAX_RATE", "0.16"))
+# Seller commissions (M5): "net" = products without VAT and shipping, "total" = paid
+COMMISSION_BASE = os.getenv("COMMISSION_BASE", "net")
 # Minutes an unpaid order keeps its stock reserved
 ORDER_RESERVATION_MINUTES = int(os.getenv("ORDER_RESERVATION_MINUTES", "10"))
 # Simulated payment provider. Turn off once a real gateway is integrated.
