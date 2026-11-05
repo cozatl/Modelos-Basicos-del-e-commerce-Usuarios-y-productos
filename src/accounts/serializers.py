@@ -1,12 +1,17 @@
-from django.contrib.auth import get_user_model
+from typing import ClassVar
+
+from django.contrib.auth import (
+    get_user_model,
+    password_validation,
+)
 from rest_framework import serializers
 
 User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
-    # password is write-only for security reasons so it's never
-    # exposed in responses
+    """Complete user management (only for superusers)."""
+
     password = serializers.CharField(
         write_only=True,
         required=False,
@@ -21,51 +26,116 @@ class UserSerializer(serializers.ModelSerializer):
             "full_name",
             "password",
             "is_active",
-            "staff",
-            "admin",
+            "is_staff",
+            "is_superuser",
+            "timestamp",
         )
-        read_only_fields = ("id", "timestamp")
+        read_only_fields = ("id", "is_superuser", "timestamp")
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        qs = User.objects.filter(email__iexact=value)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def validate_password(self, value):
+        password_validation.validate_password(value, self.instance)
+        return value
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        if self.instance is None and not attrs.get("password"):
+            raise serializers.ValidationError({"password": "This field is required."})
+        if (
+            "password" in attrs
+            and self.instance is not None
+            and request is not None
+            and not request.user.is_superuser
+            and self.instance.is_staff
+            and self.instance.pk != request.user.pk
+        ):
+            raise serializers.ValidationError(
+                {
+                    "password": "Only a superuser can change another "
+                    "staff member's password."
+                }
+            )
+        return attrs
 
     def create(self, validated_data):
-        # Uses custom manager to hash password automatically
-        password = validated_data.pop("password", None)
-        is_staff = validated_data.pop("staff", False)
-        is_admin = validated_data.pop("admin", False)
-        user = User.objects.create_user(
-            **validated_data,
-            password=password,
-            is_staff=is_staff,
-            is_admin=is_admin,
-        )
-        return user
+        return User.objects.create_user(**validated_data)
 
     def update(self, instance, validated_data):
-        # Extracts password if it was provided in the update payload
-        # (PUT/PATCH)
         password = validated_data.pop("password", None)
-        instance.email = validated_data.get("email", instance.email)
-        instance.full_name = validated_data.get(
-            "full_name", instance.full_name
-        )
-        instance.is_active = validated_data.get(
-            "is_active", instance.is_active
-        )
-
-        # Updates regular fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-
-        # Properly hashes and updates the password only if a new one was passed
+        instance = super().update(instance, validated_data)
         if password:
             instance.set_password(password)
-
-        # Updates the staff status if provided
-        if "staff" in validated_data:
-            instance.staff = validated_data.get("staff")
-
-        # Updates the admin status if provided
-        if "admin" in validated_data:
-            instance.admin = validated_data.get("admin")
-
-        instance.save()
+            instance.save(update_fields=["password"])
         return instance
+
+
+class UserProfileSerializer(UserSerializer):
+    current_password = serializers.CharField(
+        write_only=True, required=False, style={"input_type": "password"}
+    )
+
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ("current_password",)
+        read_only_fields = (
+            "id",
+            "email",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+            "timestamp",
+        )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        current = attrs.pop("current_password", None)
+        if attrs.get("password") and not (
+            current and self.instance.check_password(current)
+        ):
+            raise serializers.ValidationError(
+                {"current_password": "Current password is incorrect."}
+            )
+        return attrs
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    """Public sign-up. Only email, full name and password are accepted;
+    is_staff / is_superuser / is_active can never come from the client."""
+
+    password = serializers.CharField(
+        write_only=True,
+        style={"input_type": "password"},
+    )
+
+    class Meta:
+        model = User
+        fields = ("email", "full_name", "password")
+        extra_kwargs: ClassVar[dict] = {
+            "full_name": {
+                "required": True,
+                "allow_null": False,
+                "allow_blank": False,
+            },
+        }
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def validate_password(self, value):
+        password_validation.validate_password(value)
+        return value
+
+    def create(self, validated_data):
+        # create_user lowercases the email, hashes the password and leaves
+        # is_staff=False / is_superuser=False by default.
+        return User.objects.create_user(**validated_data)

@@ -111,7 +111,7 @@ services:
 
   worker:
     <<: *default-app
-    command: celery -A config worker
+    command: celery -A config worker -l info
     entrypoint: []
     deploy:
       resources:
@@ -124,6 +124,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    profiles: ["worker"]
+
+  beat:
+    <<: *default-app
+    command: celery -A config beat -l info --schedule /tmp/celerybeat-schedule
+    entrypoint: []
+    healthcheck:
+      disable: true
     profiles: ["worker"]
 
   js:

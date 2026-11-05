@@ -17,10 +17,11 @@ dependencies = [
   "djangorestframework>=3.18.3",
   "pillow>=10.3.0",
   "djangorestframework-simplejwt>=5.5.1",
+  "django-cors-headers>=4.9.0",
 ]
 
 [tool.ruff]
-line-length = 79
+line-length = 90
 # Avoid review generated files automatically for Django
 extend-exclude = ["*/migrations/*"]
 

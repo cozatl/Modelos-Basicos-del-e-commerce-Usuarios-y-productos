@@ -13,9 +13,22 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 import os
 import socket
 import sys
+from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
-from distutils.util import strtobool
+
+def env_bool(name, default="false"):
+    """Read a boolean environment variable (replaces distutils.strtobool)."""
+    value = os.getenv(name, default).strip().lower()
+    return value in {"1", "true", "yes", "on", "y", "t"}
+
+
+def env_list(name, default=""):
+    """Read a comma separated environment variable as a clean list."""
+    raw = os.getenv(name, default)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,32 +37,44 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ["SECRET_KEY"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = bool(strtobool(os.getenv("DEBUG", "false")))
+DEBUG = env_bool("DEBUG")
 
 TESTING = "test" in sys.argv
 
+# Debug toolbar only makes sense in local development
+USE_DEBUG_TOOLBAR = DEBUG and not TESTING
+
 # https://docs.djangoproject.com/en/6.1/ref/settings/#std:setting-ALLOWED_HOSTS
-allowed_hosts = os.getenv("ALLOWED_HOSTS", ".localhost,127.0.0.1,[::1]")
-ALLOWED_HOSTS = list(map(str.strip, allowed_hosts.split(",")))
+ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ".localhost,127.0.0.1,[::1]")
+
+# Frontend (Vite) origins allowed to call the API from the browser
+# https://github.com/adamchainz/django-cors-headers
+FRONTEND_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+)
+CORS_ALLOWED_ORIGINS = FRONTEND_ORIGINS
+CSRF_TRUSTED_ORIGINS = FRONTEND_ORIGINS
 
 # Add accounts model to match superuser with all new users
 AUTH_USER_MODEL = "accounts.User"
 
-# Define personalized login page URL for the login_required decorator
-# LOGIN_URL = "/admin/login/"
-LOGIN_URL = "accounts:login"
-LOGOUT_REDIRECT_URL = "accounts:login"
+# No HTML login anymore (the frontend uses JWT). login_required and the
+# browsable API fall back to the admin login.
+LOGIN_URL = "admin:login"
+
+# Number of products returned by the public preview endpoint
+PRODUCTS_PREVIEW_LIMIT = 8
 
 # Application definitions
 INSTALLED_APPS = [
+    "corsheaders",
     "rest_framework",
-    "pages.apps.PagesConfig",
-    "sales.apps.SalesConfig",  # Added new app
-    "product.apps.ProductConfig",  # Added new app
-    "order_manager.apps.OrderManagerConfig",  # Added new app
-    "billing_profile.apps.BillingProfileConfig",  # Added new app
-    "address.apps.AddressConfig",  # Added new app
-    "cart.apps.CartConfig",  # Added new app
+    "rest_framework_simplejwt.token_blacklist",
+    "analytics.apps.AnalyticsConfig",  # Reports and seller commissions (M5)
+    "products.apps.ProductsConfig",
+    "orders.apps.OrdersConfig",  # Orders + carts
+    "billing.apps.BillingConfig",
+    "addresses.apps.AddressesConfig",
     "accounts.apps.AccountsConfig",  # Added new app
     "django.contrib.admin",
     "django.contrib.auth",
@@ -62,6 +87,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    # Must be placed before CommonMiddleware
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -70,30 +97,35 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(minutes=30),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+}
+
 # Error control to redirect to custom error pages
 # https://docs.djangoproject.com/en/6.1/topics/http/views/#customizing-error-views
 # https://docs.djangoproject.com/en/6.1/ref/settings/#std:setting-DEBUG_PROPAGATE_EXCEPTIONS
 DEBUG_PROPAGATE_EXCEPTIONS = True
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "config.exceptions.custom_exception_handler",
-    # Create Global pagination instead of individual
-    "DEFAULT_PAGINATION_CLASS": "product.pagination.ProductPagination",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         # API auth
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         # Web auth
         "rest_framework.authentication.SessionAuthentication",
     ],
-    "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticated",
-    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_THROTTLE_RATES": {"auth": "10/min", "preview": "60/min"},
     # Implement security for Production in API module
     # 'DEFAULT_RENDERER_CLASSES': [
     #     'rest_framework.renderers.JSONRenderer',
     # ]
 }
 
-if not TESTING:
+if USE_DEBUG_TOOLBAR:
     INSTALLED_APPS = [*INSTALLED_APPS, "debug_toolbar"]
     MIDDLEWARE = [
         "debug_toolbar.middleware.DebugToolbarMiddleware",
@@ -149,13 +181,13 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",  # noqa: E501
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",  # noqa: E501
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",  # noqa: E501
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",  # noqa: E501
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -180,10 +212,50 @@ CACHES = {
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_WORKER_LOG_LEVEL = os.getenv("CELERY_WORKER_LOG_LEVEL", "info")
+# Needs a `celery -A config beat` process next to the worker (see docs/M4.md)
+CELERY_BEAT_SCHEDULE = {
+    "release-expired-orders": {
+        "task": "orders.release_expired_orders",
+        "schedule": 60.0,  # seconds
+    },
+}
+# Tests run tasks inline, without a broker
+CELERY_TASK_ALWAYS_EAGER = TESTING
+
+# Checkout (M4)
+STORE_NAME = os.getenv("STORE_NAME", "Virtual Store")
+STORE_TIME_ZONE = os.getenv("STORE_TIME_ZONE", "America/Mexico_City")
+CURRENCY = "MXN"
+# Prices already include VAT; orders store the VAT they contain with this rate
+TAX_RATE = Decimal(os.getenv("TAX_RATE", "0.16"))
+# Seller commissions (M5): "net" = products without VAT and shipping, "total" = paid
+COMMISSION_BASE = os.getenv("COMMISSION_BASE", "net")
+# Minutes an unpaid order keeps its stock reserved
+ORDER_RESERVATION_MINUTES = int(os.getenv("ORDER_RESERVATION_MINUTES", "10"))
+# Simulated payment provider. Turn off once a real gateway is integrated.
+PAYMENTS_SIMULATED = env_bool("PAYMENTS_SIMULATED", "true")
+# Used for links in customer emails
+FRONTEND_URL = os.getenv("FRONTEND_URL", FRONTEND_ORIGINS[0] if FRONTEND_ORIGINS else "")
+
+# Email: printed to the console (docker compose logs) until an
+# SMTP service is set
+# https://docs.djangoproject.com/en/6.1/topics/email/
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", "true")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@localhost")
 
 # Storages
 # https://docs.djangoproject.com/en/6.1/ref/settings/#storages
 STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
@@ -194,6 +266,11 @@ STORAGES = {
 STATIC_URL = "/static/"
 STATICFILES_DIRS = ["/public", os.path.join(BASE_DIR, "..", "public")]
 STATIC_ROOT = "/public_collected"
+
+# Media files (product images, uploads)
+# In production mount MEDIA_ROOT as a persistent volume.
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.getenv("MEDIA_ROOT", str(BASE_DIR.parent / "media"))
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
